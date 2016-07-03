@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use List::Util 'shuffle';
+my @experiments;
+my $i = 1;
+
+while (my ($times, $cmd) = splice(@ARGV, 0, 2)) {
+	push @experiments, ([$i, $cmd]) x $times;
+	$i++;
+}
+
+for my $ex (shuffle @experiments) {
+	print STDERR "%RUN @$ex\n";
+	system $ex->[1] and exit;
+}

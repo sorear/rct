@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+use strict; use warnings;
+
+my $data = do { local $/; <STDIN> };
+my @chunks = split /^(?=%RUN )/m, $data;
+my @commands;
+
+exit unless @chunks;
+
+LINE: for my $line (1 .. 1e4) {
+	my $consensus;
+	my @lnums;
+	for my $chunk (@chunks) {
+		my @chunkl = split /^/m, $chunk;
+		my ($index) = $chunkl[0] =~ /%RUN (\d+)/;
+		if ($line >= @chunkl) {
+			last LINE;
+		}
+		my $template = $chunkl[$line];
+		my $nrix=0;
+		$template =~ s/\b(\d+(?:,\d+)*(?:\.\d+)?)\b/my $x=$1; $x =~ s|,||g; push @{$lnums[$nrix++][$index-1]}, $x; "<<$nrix>>"/eg;
+		$template =~ s/\h+/ /g;
+		$consensus //= $template;
+		if ($consensus ne $template) {
+			print $consensus;
+			print "-> no consensus ($template)\n";
+			next LINE;
+		}
+	}
+
+	print $consensus;
+	use JSON::PP;
+	#print encode_json(\@lnums),"\n";
+
+	for my $nr_ix (0 .. $#lnums) {
+		for my $run_ix (0 .. $#{$lnums[$nr_ix]}) {
+			my @run_data = @{$lnums[$nr_ix][$run_ix]};
+			my $sum = 0;
+			map { $sum += $_ } @run_data;
+			my $count = @run_data;
+			my $mean = $sum/$count;
+			my $pvar = 0;
+			map { $pvar += ($_ - $mean) ** 2 } @run_data;
+			$pvar /= ($count - 1);
+			my $psd = sqrt($pvar);
+			my $merr = $psd / sqrt($count);
+			my @ord = sort { $a <=> $b } @run_data;
+			my @trunc = @ord[(@ord/10) .. (@ord*9/10)];
+			my $tcount = @trunc;
+			my $tsum = 0;
+			map { $tsum += $_ } @trunc;
+			my $tmean = $tsum / $tcount;
+			my $tvar = 0;
+			map { $tvar += ($_ - $tmean) ** 2 } @trunc;
+			$tvar /= ($tcount - 1);
+			my $tsd = sqrt($tvar);
+			my $tmerr = $tsd / sqrt($tcount);
+			printf "-> <<%2d>> (#%2d)  count=%d mean=%.4e mlow3=%.4e mhi3=%.4e sd=%.4e  tcount=%d tmean=%.4e tmlow3=%.4e tmhi3=%.4e tsd=%e\n",
+				$nr_ix+1, $run_ix+1, $count, $mean, $mean-$merr*3, $mean+$merr*3, $psd,  $tcount, $tmean, $tmean-$merr*3, $tmean+$merr*3, $tsd;
+		}
+	}
+}
