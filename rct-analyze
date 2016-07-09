@@ -7,6 +7,16 @@ my @commands;
 
 exit unless @chunks;
 
+my %cmds;
+for my $chunk (@chunks) {
+	if ($chunk =~ /%RUN (\d+) (.*)/) {
+		$cmds{$1} = $2;
+	}
+}
+for my $id (sort { $a <=> $b } keys %cmds) {
+	print "\$\$ <<$id>> = $cmds{$id}\n";
+}
+
 LINE: for my $line (1 .. 1e4) {
 	my $consensus;
 	my @lnums;
